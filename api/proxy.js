@@ -27,19 +27,33 @@ export default async function handler(req, res) {
       url,
       headers: {
         ...req.headers,
-        host: undefined,
+        host: undefined, // hindari override host
       },
       params: req.method === 'GET' ? restQuery : undefined,
       data: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? req.body : undefined,
+      responseType: 'arraybuffer', // penting untuk menghindari masalah encoding
     });
 
+    const contentType = response.headers['content-type'] || 'application/octet-stream';
+
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', response.headers['content-type'] || 'application/json');
+    res.setHeader('Content-Type', contentType);
     res.status(response.status).send(response.data);
   } catch (error) {
-    res.status(error.response?.status || 500).json({
-      error: error.message,
-      data: error.response?.data || null
-    });
+    const status = error.response?.status || 500;
+    const contentType = error.response?.headers?.['content-type'] || 'application/json';
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', contentType);
+    
+    // jika error response-nya berupa binary, coba ubah ke string
+    if (error.response?.data instanceof Buffer) {
+      res.status(status).send(error.response.data);
+    } else {
+      res.status(status).json({
+        error: error.message,
+        data: error.response?.data || null
+      });
+    }
   }
 }
