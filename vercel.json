@@ -1,0 +1,26 @@
+{
+    "headers": [
+      {
+        "source": "/api/(.*)",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Credentials",
+            "value": "true"
+          },
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "http://127.0.0.1:5500"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type, Authorization"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+          }
+        ]
+      }
+    ]
+  }
+  
