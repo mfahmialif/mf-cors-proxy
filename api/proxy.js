@@ -8,21 +8,19 @@ export const config = {
 
 export default async function handler(req, res) {
   const { url, ...restQuery } = req.query;
-  const origin = req.headers.origin;
+  const origin = req.headers.origin || '';
 
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-
+  // Validasi URL wajib ada
   if (!url) {
     return res.status(400).json({ error: 'Parameter ?url= diperlukan' });
   }
 
-  // Handle preflight CORS
+  // Handle preflight OPTIONS
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     return res.status(200).end();
   }
 
@@ -33,37 +31,33 @@ export default async function handler(req, res) {
       headers: {
         ...req.headers,
         host: undefined,
+        origin: undefined, // hindari forward origin ke server target
+        referer: undefined,
       },
       params: req.method === 'GET' ? restQuery : undefined,
       data: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? req.body : undefined,
       withCredentials: true,
     });
 
-    // Logging Set-Cookie
+    // Atur Set-Cookie jika ada
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
-      console.log('Set-Cookie:', setCookie);
       res.setHeader('Set-Cookie', setCookie);
-    } else {
-      console.log('Tidak ada Set-Cookie diterima dari target API');
     }
 
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
+    // Content-Type
     res.setHeader('Content-Type', response.headers['content-type'] || 'application/json');
     res.status(response.status).send(response.data);
   } catch (error) {
     const status = error.response?.status || 500;
     const contentType = error.response?.headers?.['content-type'] || 'application/json';
 
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Content-Type', contentType);
 
     if (error.response?.data instanceof Buffer) {
