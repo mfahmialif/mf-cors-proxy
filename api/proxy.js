@@ -10,6 +10,7 @@ export default async function handler(req, res) {
     const { url, ...restQuery } = req.query;
 
     if (!url) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
         return res.status(400).json({ error: 'Parameter ?url= diperlukan' });
     }
 
@@ -37,9 +38,19 @@ export default async function handler(req, res) {
         res.setHeader('Content-Type', response.headers['content-type'] || 'application/json');
         res.status(response.status).send(response.data);
     } catch (error) {
-        res.status(error.response?.status || 500).json({
-            error: error.message,
-            data: error.response?.data || null
-        });
+        const status = error.response?.status || 500;
+        const contentType = error.response?.headers?.['content-type'] || 'application/json';
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', contentType);
+
+        if (error.response?.data instanceof Buffer) {
+            res.status(status).send(error.response.data);
+        } else {
+            res.status(status).json({
+                error: error.message,
+                data: error.response?.data || null,
+            });
+        }
     }
 }
