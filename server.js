@@ -1,41 +1,50 @@
-var express = require('express'),
-    request = require('request'),
-    bodyParser = require('body-parser'),
-    app = express();
+const express = require('express');
+const fetch = require('node-fetch');
+const bodyParser = require('body-parser');
+const app = express();
 
-var myLimit = typeof(process.argv[2]) != 'undefined' ? process.argv[2] : '100kb';
-console.log('Using limit: ', myLimit);
+const myLimit = process.argv[2] || '100kb';
+console.log('Using limit:', myLimit);
 
-app.use(bodyParser.json({limit: myLimit}));
+app.use(bodyParser.json({ limit: myLimit }));
 
-app.all('*', function (req, res, next) {
-
-    // Set CORS headers: allow all origins, methods, and headers: you may want to lock this down in a production environment
+app.all('*', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, PUT, PATCH, POST, DELETE");
-    res.header("Access-Control-Allow-Headers", req.header('access-control-request-headers'));
+    res.header("Access-Control-Allow-Headers", req.header('access-control-request-headers') || '*');
 
     if (req.method === 'OPTIONS') {
-        // CORS Preflight
         res.send();
-    } else {
-        var targetURL = req.header('Target-URL');
-        if (!targetURL) {
-            res.send(500, { error: 'There is no Target-Endpoint header in the request' });
-            return;
-        }
-        request({ url: targetURL + req.url, method: req.method, json: req.body, headers: {'Authorization': req.header('Authorization')} },
-            function (error, response, body) {
-                if (error) {
-                    console.error('error: ' + response.statusCode)
-                }
-//                console.log(body);
-            }).pipe(res);
+        return;
+    }
+
+    const targetURL = req.header('Target-URL');
+    if (!targetURL) {
+        res.status(500).json({ error: 'There is no Target-URL header in the request' });
+        return;
+    }
+
+    try {
+        const fetchOptions = {
+            method: req.method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': req.header('Authorization') || '',
+            },
+            body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
+        };
+
+        const response = await fetch(targetURL + req.url, fetchOptions);
+        const data = await response.text();
+
+        res.status(response.status).send(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error fetching target URL' });
     }
 });
 
-app.set('port', process.env.PORT || 3000);
-
-app.listen(app.get('port'), function () {
-    console.log('Proxy server listening on port ' + app.get('port'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log('Proxy server listening on port', PORT);
 });
